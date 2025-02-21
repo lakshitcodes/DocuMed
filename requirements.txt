@@ -1,0 +1,8 @@
+langchain
+chromadb
+streamlit
+beautifulsoup4
+requests
+python-dotenv
+groq
+schedule
