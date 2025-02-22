@@ -27,12 +27,33 @@ class MedicalRAG:
 
     def process_papers(self, papers: List[Dict]):
         texts = []
-        self.paper_urls = {}  # Store paper URLs with their titles
+        metadata_list = []
+        
         for paper in papers:
+            # Store complete paper info in metadata
+            metadata = {
+                'title': paper['title'],
+                'url': paper['url'],
+                'source': paper['source'],
+                'date': paper['date']
+            }
+            
             text = f"Title: {paper['title']}\nAbstract: {paper['abstract']}\nDate: {paper['date']}\nSource: {paper['source']}\nURL: {paper['url']}"
-            self.paper_urls[paper['title']] = paper['url']
             chunks = self.text_splitter.split_text(text)
-            texts.extend(chunks)
+            
+            for chunk in chunks:
+                texts.append(chunk)
+                metadata_list.append(metadata)
+
+        if not self.vectorstore:
+            self.vectorstore = Chroma.from_texts(
+                texts,
+                self.embeddings,
+                metadatas=metadata_list,
+                persist_directory="./chroma_db"
+            )
+        else:
+            self.vectorstore.add_texts(texts, metadatas=metadata_list)
 
         if not self.vectorstore:
             self.vectorstore = Chroma.from_texts(
@@ -43,28 +64,36 @@ class MedicalRAG:
         else:
             self.vectorstore.add_texts(texts)
 
-    def query_papers(self, query: str) -> str:
+    def query_papers(self, query: str) -> Dict:
         if not self.vectorstore:
-            return "No papers have been processed yet. Please update the database first."
+            return {
+                'analysis': "No papers have been processed yet. Please update the database first.",
+                'papers': []
+            }
             
-        retriever = self.vectorstore.as_retriever(
-            search_kwargs={"k": 5}
-        )
-
-        template = """You are a medical research assistant. Given the following research papers, 
-        provide a comprehensive analysis and highlight key findings, complications, and implications 
-        for medical professionals. At the end of your response, list the titles of all papers you referenced.
+        # First get relevant documents
+        docs = self.vectorstore.similarity_search(query, k=5)
+        
+        # Extract document texts for the analysis
+        texts = [doc.page_content for doc in docs]
+        context = "\n\n".join(texts)
+        
+        # Prepare the prompt
+        template = """You are a medical research assistant analyzing academic papers. Given the following research papers, 
+        provide a detailed analysis focusing on the practical implications and key takeaways.
 
         Research papers: {context}
 
         Question: {question}
 
-        Please structure your response with:
-        1. Key Findings
-        2. Clinical Implications
-        3. Potential Complications
-        4. Recommendations for Medical Professionals
-        5. Referenced Papers (list only the titles of papers you specifically referenced in your analysis)
+        Follow this structure in your response:
+        1. Key Findings (focus on the most significant and well-supported conclusions)
+        2. Clinical Implications (specific, actionable insights for medical professionals)
+        3. Critical Analysis (evaluate the strength of evidence and any limitations)
+        4. Recommendations (concrete, evidence-based suggestions)
+
+        Be specific and factual. Focus on well-supported conclusions and clearly indicate any uncertainty.
+        Include numerical data and statistics when available.
         """
 
         prompt = PromptTemplate(
@@ -72,11 +101,30 @@ class MedicalRAG:
             input_variables=["context", "question"]
         )
 
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=self.llm,
-            chain_type="stuff",
-            retriever=retriever,
-            chain_type_kwargs={"prompt": prompt}
-        )
+        # Create and run the chain
+        chain = prompt | self.llm
+        analysis = chain.invoke({"context": context, "question": query})
+        
+        # Extract the content from the response object
+        if hasattr(analysis, 'content'):
+            analysis_text = analysis.content
+        else:
+            analysis_text = str(analysis)
 
-        return qa_chain.run(query)
+        # Extract metadata from retrieved documents
+        referenced_papers = []
+        for doc in docs:
+            if hasattr(doc, 'metadata'):
+                paper_info = doc.metadata
+                if paper_info:  # Only add if we have metadata
+                    referenced_papers.append({
+                        'title': paper_info.get('title', 'Unknown Title'),
+                        'url': paper_info.get('url', '#'),
+                        'source': paper_info.get('source', 'Unknown Source'),
+                        'date': paper_info.get('date', 'Unknown Date')
+                    })
+        
+        return {
+            'analysis': analysis_text,
+            'papers': referenced_papers
+        }
