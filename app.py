@@ -45,12 +45,19 @@ def run_scheduler():
 
 def display_recent_papers():
     """Display the most recently fetched papers"""
-    st.subheader("Recently Added Papers")
+    st.markdown('<h3 class="section-header">Recently Added Papers</h3>', unsafe_allow_html=True)
     for paper in st.session_state.recent_papers:
-        with st.expander(f"{paper['title']} ({paper['source']})"):
-            st.write(f"**Date:** {paper['date']}")
-            st.write(f"**Abstract:** {paper['abstract'][:200]}...")
-            st.write(f"**Source:** [{paper['source']}]({paper['url']})")
+        st.markdown(f'''
+            <div class="paper-box">
+                <div class="paper-title">{paper['title']}</div>
+                <div class="paper-meta">
+                    <strong>Source:</strong> {paper['source']} | 
+                    <strong>Date:</strong> {paper['date']}
+                </div>
+                <p>{paper['abstract'][:200]}...</p>
+                <a href="{paper['url']}" target="_blank" class="custom-button">Read Full Paper</a>
+            </div>
+        ''', unsafe_allow_html=True)
 
 def display_all_papers():
     """Display all stored papers with filtering options"""
@@ -111,49 +118,141 @@ def display_search_results(query_result):
         return
 
     # Display analysis in a cleaner format
+    st.markdown('<div class="analysis-section">', unsafe_allow_html=True)
     analysis_text = query_result['analysis']
-    
-    # Split the analysis into sections
     sections = analysis_text.split('\n')
     current_section = ""
     
     for section in sections:
         if section.startswith('1. Key Findings'):
-            st.markdown("### 🔍 Key Findings")
+            st.markdown('<h3 class="section-header">🔍 Key Findings</h3>', unsafe_allow_html=True)
             current_section = "key_findings"
         elif section.startswith('2. Clinical Implications'):
-            st.markdown("### 👨‍⚕️ Clinical Implications")
+            st.markdown('<h3 class="section-header">👨‍⚕️ Clinical Implications</h3>', unsafe_allow_html=True)
             current_section = "implications"
         elif section.startswith('3. Critical Analysis'):
-            st.markdown("### 📊 Critical Analysis")
+            st.markdown('<h3 class="section-header">📊 Critical Analysis</h3>', unsafe_allow_html=True)
             current_section = "analysis"
         elif section.startswith('4. Recommendations'):
-            st.markdown("### 💡 Recommendations")
+            st.markdown('<h3 class="section-header">💡 Recommendations</h3>', unsafe_allow_html=True)
             current_section = "recommendations"
         elif section.strip():  # Only add non-empty lines
-            st.write(section)
+            st.markdown(f'<p>{section}</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # Display referenced papers
     papers = query_result.get('papers', [])
     if papers:
-        st.markdown("### 📚 Referenced Papers")
+        st.markdown('<h3 class="section-header">📚 Referenced Papers</h3>', unsafe_allow_html=True)
         
         for i, paper in enumerate(papers):
-            with st.expander(f"{i+1}. {paper['title']}", expanded=True):
-                st.markdown(f"**Source:** {paper['source']}")
-                st.markdown(f"**Date:** {paper['date']}")
-                
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("Open Paper", key=f"ref_{i}_{int(time.time())}"):
-                        st.markdown(f"<a href='{paper['url']}' target='_blank'>Opening paper...</a>", unsafe_allow_html=True)
-                with col2:
-                    st.markdown(f"[View Original Paper]({paper['url']})")
+            st.markdown(f'''
+                <div class="paper-box">
+                    <div class="paper-title">{i+1}. {paper['title']}</div>
+                    <div class="paper-meta">
+                        <strong>Source:</strong> {paper['source']} | 
+                        <strong>Date:</strong> {paper['date']}
+                    </div>
+                </div>
+            ''', unsafe_allow_html=True)
+            
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                if st.button("Open Paper", key=f"ref_{i}_{int(time.time())}"):
+                    st.markdown(f"<a href='{paper['url']}' target='_blank' class='custom-button'>Opening paper...</a>", unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"[View Original Paper]({paper['url']})")
     else:
         st.info("No specific papers were referenced for this query.")
 
+def custom_css():
+    st.markdown("""
+        <style>
+        .stApp {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .main-header {
+            text-align: center;
+            color: #1E88E5;
+            padding: 1rem 0;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 2rem;
+        }
+        
+        .paper-box {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .section-header {
+            color: #1E88E5;
+            font-size: 1.2rem;
+            margin: 1.5rem 0 1rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .status-box {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            background-color: #f8f9fa;
+            border-left: 4px solid #1E88E5;
+        }
+        
+        .search-box {
+            padding: 1.5rem;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 2rem 0;
+        }
+        
+        .paper-title {
+            color: #2196F3;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .paper-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+        
+        .custom-button {
+            background-color: #1E88E5;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0.5rem 0;
+        }
+        
+        .analysis-section {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 1rem 0;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 def main():
-    st.title("Medical Research Papers RAG System")
+    custom_css()
+    st.markdown('<h1 class="main-header">DocuMeD</h1>', unsafe_allow_html=True)
     
     # Initialize system state
     if 'initialized' not in st.session_state:
@@ -181,16 +280,22 @@ def main():
         scheduler_thread.start()
 
     # Navigation
+    st.sidebar.markdown('<div class="nav-section">', unsafe_allow_html=True)
     page = st.sidebar.radio("Navigation", ["Recent Updates", "All Papers", "Search"])
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
     
     # Display update status in sidebar
-    st.sidebar.title("Update Status")
+    st.sidebar.markdown('<h3 class="section-header">Update Status</h3>', unsafe_allow_html=True)
     if st.session_state.last_update:
-        st.sidebar.write(f"Last Update: {st.session_state.last_update.strftime('%Y-%m-%d %H:%M')}")
-        st.sidebar.write(f"Next Update: {st.session_state.next_update.strftime('%Y-%m-%d %H:%M')}")
+        st.sidebar.markdown(f'''
+            <div class="status-box">
+                <p><strong>Last Update:</strong><br/> {st.session_state.last_update.strftime('%Y-%m-%d %H:%M')}</p>
+                <p><strong>Next Update:</strong><br/> {st.session_state.next_update.strftime('%Y-%m-%d %H:%M')}</p>
+            </div>
+        ''', unsafe_allow_html=True)
     
     # Manual update button
-    if st.sidebar.button("Update Now"):
+    if st.sidebar.button("Update Now", type="primary"):
         with st.spinner("Fetching latest papers..."):
             update_papers()
         st.success("Database updated successfully!")
@@ -206,12 +311,14 @@ def main():
         display_all_papers()
     
     else:  # Search page
-        st.subheader("Search and Analysis")
+        st.markdown('<div class="search-box">', unsafe_allow_html=True)
+        st.markdown('<h3 class="section-header">Search and Analysis</h3>', unsafe_allow_html=True)
         query = st.text_input("Enter your medical research query:")
         if query:
             with st.spinner("Analyzing research papers..."):
                 results = st.session_state.rag.query_papers(query)
                 display_search_results(results)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
